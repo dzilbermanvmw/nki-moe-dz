@@ -3,6 +3,7 @@ import argparse
 import ast
 import base64
 import copy
+import csv
 import json
 import os
 import time
@@ -42,6 +43,8 @@ def parse_args():
     parser.add_argument("--enable-nki", action="store_true")
     parser.add_argument("--base-latency", type=float, default=526.15)
     parser.add_argument("--base-throughput", type=float, default=134.61)
+    parser.add_argument("--team-id", type=str, help="Team identifier for score tracking")
+    parser.add_argument("--member-id", type=str, help="Team member identifier for score tracking")
 
     # Model path
     parser.add_argument("--model-path", type=str, default="/home/ubuntu/Qwen3-30B-A3B/hf_model")
@@ -498,7 +501,8 @@ def count_nki_flop_ratio(hlo_path_context_enc, hlo_path_token_gen):
     return nki_flop_ratio
 
 
-def calculate_score(base_latency, base_throughput, accuracy, latency, throughput, nki_flop_ratio):
+# Added team_id and member_id input parameters for connecting metric scores to team that submitted their nki-moe script
+def calculate_score(base_latency, base_throughput, accuracy, latency, throughput, nki_flop_ratio, team_id=None, member_id=None, qwen_module=None):
     
 
     increased_throughput = throughput / base_throughput
@@ -511,6 +515,51 @@ def calculate_score(base_latency, base_throughput, accuracy, latency, throughput
     print ('reduced_latency: ', reduced_latency)
     print ('increased throughput: ',  increased_throughput)
     print ('nki flop ratio: ', nki_flop_ratio)
+    
+    # Write parameters to CSV file based on team_id and qwen_module identifier
+    # Build filename with optional qwen_module suffix
+    if team_id:
+        base_filename = f'{team_id}_qwen3-30b-a3b'
+        if qwen_module and qwen_module != 'qwen':
+            csv_filename = f'{base_filename}_{qwen_module}_score_records.csv'
+        else:
+            csv_filename = f'{base_filename}_score_records.csv'
+    else:
+        if qwen_module and qwen_module != 'qwen':
+            csv_filename = f'qwen3-30b-a3b_{qwen_module}_score_records.csv'
+        else:
+            csv_filename = 'qwen3-30b-a3b_score_records.csv'
+
+    #check whether file exists
+    file_exists = os.path.isfile(csv_filename)
+    
+    with open(csv_filename, 'a', newline='') as csvfile:
+        fieldnames = ['team_id', 'member_id', 'base_latency', 'base_throughput', 'accuracy', 'latency', 
+                      'throughput', 'nki_flop_ratio', 'increased_throughput', 'reduced_latency', 
+                      'final_score', 'timestamp']
+        writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+        
+        # Write header if file is new
+        if not file_exists:
+            writer.writeheader()
+        
+        # Write the record
+        writer.writerow({
+            'team_id': team_id,
+            'member_id': member_id,
+            'base_latency': base_latency,
+            'base_throughput': base_throughput,
+            'accuracy': accuracy,
+            'latency': latency,
+            'throughput': throughput,
+            'nki_flop_ratio': nki_flop_ratio,
+            'increased_throughput': increased_throughput,
+            'reduced_latency': reduced_latency,
+            'final_score': final_score,
+            'timestamp': time.strftime('%Y-%m-%d %H:%M:%S')
+        })
+    
+    print(f'Score records written to file: {csv_filename}')
     
     return final_score
 
@@ -531,8 +580,10 @@ def find_hlos():
 
     return ctx_rt, tkg_rt
 
+# MAIN function below
 def main():
     args = parse_args()
+    #set default prompt if nothing is passed in
     if not args.prompts:
         args.prompts = ["I believe the meaning of life is"]
         
@@ -540,12 +591,8 @@ def main():
     args.max_length = args.seq_len
     args.tol_map = "{None: (1e-5, 0.05), 1000: (1e-5, 0.03), 50: (1e-5, 0.03), 5: (1e-5, 0.03)}"
 
-    # points to your local model definition from qwen.py or qwen_with_nki.py
-    if args.enable_nki:
-        print("Loading qwen_with_nki module (NKI-accelerated RMSNorm enabled)")
-        qwen = importlib.import_module("qwen_with_nki")
-    else:
-        qwen = importlib.import_module(args.qwen)   
+    # points to your local model definition from qwen.py
+    qwen = importlib.import_module(args.qwen)   
 
     if args.mode == "generate":
         model, tokenizer, generation_config = prepare_inference(qwen.NeuronQwen3MoeForCausalLM, args)
@@ -616,7 +663,7 @@ def main():
 
         nki_flop_ratio = count_nki_flop_ratio(ctx_enc_hlo_path, tkg_gen_hlo_path)
 
-        score = calculate_score(args.base_latency, args.base_throughput, accuracy, latency, throughput, nki_flop_ratio)
+        score = calculate_score(args.base_latency, args.base_throughput, accuracy, latency, throughput, nki_flop_ratio, args.team_id, args.member_id, args.qwen)
         print(
             f"Prompt: {args.prompts[0]}\n"
             f"Final Score: {score}\n"
@@ -655,7 +702,7 @@ def main():
     
             nki_flop_ratio = count_nki_flop_ratio(ctx_enc_hlo_path, tkg_gen_hlo_path)
 
-            score = calculate_score(base_latency, base_throughput, accuracy, latency, throughput, nki_flop_ratio)
+            score = calculate_score(base_latency, base_throughput, accuracy, latency, throughput, nki_flop_ratio, args.team_id, args.member_id, args.qwen)
             print(
                 f"Prompt: {prompt}\n"
                 f"Final Score: {score}\n"
@@ -708,7 +755,7 @@ def main():
     
             nki_flop_ratio = count_nki_flop_ratio(ctx_enc_hlo_path, tkg_gen_hlo_path)
 
-            score = calculate_score(base_latency, base_throughput, accuracy, latency, throughput, nki_flop_ratio)
+            score = calculate_score(base_latency, base_throughput, accuracy, latency, throughput, nki_flop_ratio, args.team_id, args.member_id, args.qwen)
             print(
                 f"Prompt: {prompt}\n"
                 f"Final Score: {score}\n"

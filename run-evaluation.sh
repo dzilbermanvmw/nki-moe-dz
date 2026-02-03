@@ -16,7 +16,7 @@ NC='\033[0m' # No Color
 
 # Default values
 MODE="evaluate_single"
-PLATFORM="trn2"
+PLATFORM="trn3"
 PROMPT="I believe the meaning of life is"
 SEQ_LEN=640
 QWEN_MODULE="qwen"
@@ -145,7 +145,7 @@ fi
 
 # Display configuration
 echo ""
-log_step "NKI-MoE Inference performance Evaluation Configuration"
+log_step "NKI-MoE Inference performance Evaluation Configuration:"
 echo "=================================="
 echo "Team ID:       $TEAM_ID"
 echo "Member ID:     $MEMBER_ID"
@@ -253,7 +253,7 @@ DURATION=$((END_TIME - START_TIME))
 MINUTES=$((DURATION / 60))
 SECONDS=$((DURATION % 60))
 
-log_info "Benchmarking TITAL Execution time: ${MINUTES}m ${SECONDS}s"
+log_info "ATTENTION! Benchmarking process TOTAL Execution time: ${MINUTES}m ${SECONDS}s"
 echo "=================================================="
 echo ""
 
@@ -304,33 +304,6 @@ if [ -f "$SCRIPT_DIR/$CSV_FILENAME" ]; then
     fi
     echo ""
     
-    # Display summary statistics for this member
-    if [ -n "$MEMBER_RECORDS" ]; then
-        log_step "Performance Summary"
-        echo "=================================="
-        
-        # Extract scores (assuming final_score is column 11)
-        SCORES=$(echo "$MEMBER_RECORDS" | awk -F',' '{print $11}')
-        
-        if [ -n "$SCORES" ]; then
-            # Calculate statistics using awk
-            STATS=$(echo "$SCORES" | awk '
-                BEGIN { min=999999; max=0; sum=0; count=0 }
-                {
-                    if ($1 < min) min = $1
-                    if ($1 > max) max = $1
-                    sum += $1
-                    count++
-                }
-                END {
-                    avg = sum / count
-                    printf "Min Score: %.4f\nMax Score: %.4f\nAvg Score: %.4f\nTotal Runs: %d\n", min, max, avg, count
-                }
-            ')
-            echo "$STATS"
-        fi
-        echo ""
-    fi
     
     # Offer to view full file
     log_step "View Options"
@@ -389,11 +362,11 @@ if [ -f "$SCRIPT_DIR/$CSV_FILENAME" ]; then
         fi
         
         echo ""
-        log_result "Benchmark File S3 Upload Summary:"
+        log_result "Inference Benchmark File S3 Upload Summary:"
         echo "=================================="
         log_result "Target Bucket: $S3_BUCKET"
         log_result "Path: submissions/$TEAM_ID/$MEMBER_ID/$SUBMISSION_ID/"
-        log_result "Files uploaded:"
+        log_result "Metrics Files uploaded:"
         log_result "  - $CSV_FILENAME"
         [ -f "$SCRIPT_DIR/benchmark_report.json" ] && log_result "  - benchmark_report.json"
         [ -n "$LOGIT_FILES" ] && log_result "  - expected_logits_*.pt files"

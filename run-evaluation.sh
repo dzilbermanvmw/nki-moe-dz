@@ -346,7 +346,7 @@ DURATION=$((END_TIME - START_TIME))
 MINUTES=$((DURATION / 60))
 SECONDS=$((DURATION % 60))
 
-log_info "Benchmarking TITAL Execution time: ${MINUTES}m ${SECONDS}s"
+log_info "CHECK: Benchmarking TOTAL Execution time: ${MINUTES}m ${SECONDS}s"
 echo "=================================================="
 echo ""
 
@@ -426,17 +426,17 @@ if [ -f "$SCRIPT_DIR/$CSV_FILENAME" ]; then
     fi
     
     # Offer to view full file
-    log_step "View Options"
-    echo "=================================="
-    echo "View full CSV file:"
-    echo "  cat $SCRIPT_DIR/$CSV_FILENAME"
-    echo ""
-    echo "View in column format:"
-    echo "  column -t -s ',' < $SCRIPT_DIR/$CSV_FILENAME | less -S"
-    echo ""
-    echo "Open in Excel/Numbers:"
-    echo "  open $SCRIPT_DIR/$CSV_FILENAME"
-    echo ""
+    # log_step "View Options"
+    # echo "=================================="
+    # echo "View full CSV file:"
+    # echo "  cat $SCRIPT_DIR/$CSV_FILENAME"
+    # echo ""
+    # echo "View in column format:"
+    # echo "  column -t -s ',' < $SCRIPT_DIR/$CSV_FILENAME | less -S"
+    # echo ""
+    # echo "Open in Excel/Numbers:"
+    # echo "  open $SCRIPT_DIR/$CSV_FILENAME"
+    # echo ""
     
     # Upload to S3 if enabled
     if [ "$UPLOAD_TO_S3" = true ]; then
@@ -445,7 +445,7 @@ if [ -f "$SCRIPT_DIR/$CSV_FILENAME" ]; then
         
         S3_PATH="s3://$S3_BUCKET/submissions/$TEAM_ID/$MEMBER_ID/$SUBMISSION_ID/"
         
-        log_info "Uploading CSV file to S3..."
+        log_info "Uploading benchmark metrics CSV file to S3..."
         log_info "Destination: ${S3_PATH}${CSV_FILENAME}"
         
         if aws s3 cp "$SCRIPT_DIR/$CSV_FILENAME" "${S3_PATH}${CSV_FILENAME}"; then

@@ -22,13 +22,17 @@ To learn NKI, follow [the official NKI guide](https://awsdocs-neuron.readthedocs
 3. Clone this repository and navigate to its root:
 ```bash
 git clone https://github.com/aws-neuron/nki-moe.git
-cd [PATH]/nki-moe
+cd [LOCAL PATH]/nki-moe
 ```
 where `[PATH]` is the directory where you have performed the clone.
 
 4. Download the [HuggingFace Qwen3-30B-A3B model](https://huggingface.co/Qwen/Qwen3-Coder-30B-A3B-Instruct) to a `~/Qwen3-Coder-30B-A3B/hf_model` folder in your home directory. We recommend doing so using the [Hugging Face CLI](https://huggingface.co/docs/huggingface_hub/en/guides/cli), you can install Hugging Face CLI by running the following command:
 ```bash
 pip3 install huggingface_hub[cli]
+```
+The command to download HuggingFace model into the expected `~/Qwen3-30B-A3B/hf_model/` folder should look like:
+```bash
+hf download Qwen/Qwen3-Coder-30B-A3B-Instruct --local-dir ~/Qwen3-30B-A3B/hf_model/
 ```
 
 5. To run inference in `generate` mode, navigate to `[PATH]/nki-moe` folder and run the following command:

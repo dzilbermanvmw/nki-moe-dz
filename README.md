@@ -156,6 +156,13 @@ We define **points** as **Accuracy** (binary) **\* Reduced Latency \* Increased 
 
 For example, a submission that is sufficiently accurate, with 10x reduced latency, 2x increased throughput, and 0.85 normalized NKI FLOPS would obtain 1 \* 10 \* 2 \* 1.85 \= 37 points.
 
+### Sample NKI MOE Dashboard 
+
+Test of sample NKI-MOE dashboard for `trn2.3xlarge` based compute is shown below
+
+<iframe width="600" height="400" src="https://us-east-2.quicksight.aws.amazon.com/sn/embed/share/accounts/574143645326/dashboards/17608ca6-7183-4a95-92d0-2d7d9aae1ddb/sheets/17608ca6-7183-4a95-92d0-2d7d9aae1ddb_af47d763-0209-442a-a727-f0ecf241a4ca/visuals/17608ca6-7183-4a95-92d0-2d7d9aae1ddb_7c928c33-6e7f-4a00-a649-423cf1b8d781?directory_alias=nki-moe-trn-leaderboard-prod">
+</iframe>
+
 ## Additional Tools
 
 1. **Profiling:** If you would like to profile your implementation in order to get a better understanding of performance bottlenecks and opportunities for optimization, you can use the [Neuron Explorer](https://awsdocs-neuron.readthedocs-hosted.com/en/latest/tools/neuron-explorer/index.html).

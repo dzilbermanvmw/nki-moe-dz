@@ -194,6 +194,99 @@ else
     fi
 fi
 
+# NEW: Validate qwen module file
+QWEN_FILE="${QWEN_MODULE}.py"
+log_step "Validating Submitted Qwen Module: $QWEN_FILE"
+
+# Check if qwen module file exists
+if [ ! -f "$SCRIPT_DIR/$QWEN_FILE" ]; then
+    log_error "Qwen module file not found: $QWEN_FILE"
+    log_error "Expected location: $SCRIPT_DIR/$QWEN_FILE"
+    exit 1
+fi
+
+log_info "✓ File exists: $QWEN_FILE"
+
+# Check if file is readable
+if [ ! -r "$SCRIPT_DIR/$QWEN_FILE" ]; then
+    log_error "Qwen module file is not readable: $QWEN_FILE"
+    exit 1
+fi
+
+log_info "✓ File is readable"
+
+# Validate Python3 syntax
+log_info "Validating QWEN library Python3 syntax..."
+if ! python3 -m py_compile "$SCRIPT_DIR/$QWEN_FILE" 2>/dev/null; then
+    log_error "Python syntax validation failed for: $QWEN_FILE"
+    log_error "Please fix syntax errors in your qwen module"
+    python3 -m py_compile "$SCRIPT_DIR/$QWEN_FILE"
+    exit 1
+fi
+
+log_info "✓ QWEN library Python3 syntax is valid"
+
+# Security checks - scan for dangerous patterns
+log_info "Performing QWEN library security checks..."
+SECURITY_ISSUES=0
+
+# Check for dangerous imports
+DANGEROUS_IMPORTS="subprocess|os\.system|eval|exec|compile|__import__|pickle|shelve|marshal"
+if grep -E "^\s*(import|from).*($DANGEROUS_IMPORTS)" "$SCRIPT_DIR/$QWEN_FILE" > /dev/null 2>&1; then
+    log_warn "⚠ Warning: Potentially dangerous imports detected (subprocess, os.system, eval, exec, etc.)"
+    log_warn "These may be flagged for security review"
+    SECURITY_ISSUES=$((SECURITY_ISSUES + 1))
+fi
+
+# Check for file operations
+if grep -E "(open\s*\(|file\s*\(|\.write\(|\.read\()" "$SCRIPT_DIR/$QWEN_FILE" > /dev/null 2>&1; then
+    log_warn "⚠ Warning: File I/O operations detected"
+    log_warn "Ensure file operations are necessary and safe"
+    SECURITY_ISSUES=$((SECURITY_ISSUES + 1))
+fi
+
+# Check for network operations
+if grep -E "(socket|urllib|requests|http\.client|ftplib)" "$SCRIPT_DIR/$QWEN_FILE" > /dev/null 2>&1; then
+    log_warn "⚠ Warning: Network operations detected"
+    log_warn "Network access may be restricted during evaluation"
+    SECURITY_ISSUES=$((SECURITY_ISSUES + 1))
+fi
+
+# Check for system commands
+if grep -E "(os\.system|subprocess\.call|subprocess\.run|subprocess\.Popen)" "$SCRIPT_DIR/$QWEN_FILE" > /dev/null 2>&1; then
+    log_error "✗ SECURITY RISK: System command execution detected"
+    log_error "System commands are not allowed in qwen modules"
+    exit 1
+fi
+
+# Check for code execution
+if grep -E "\b(eval|exec)\s*\(" "$SCRIPT_DIR/$QWEN_FILE" > /dev/null 2>&1; then
+    log_error "✗ SECURITY RISK: Dynamic code execution detected (eval/exec)"
+    log_error "Dynamic code execution is not allowed"
+    exit 1
+fi
+
+# Check overall QWEN library file size (max 10MB)
+FILE_SIZE=$(stat -f%z "$SCRIPT_DIR/$QWEN_FILE" 2>/dev/null || stat -c%s "$SCRIPT_DIR/$QWEN_FILE" 2>/dev/null)
+MAX_SIZE=$((10 * 1024 * 1024))
+if [ "$FILE_SIZE" -gt "$MAX_SIZE" ]; then
+    log_error "File size exceeds 10MB limit: $(($FILE_SIZE / 1024 / 1024))MB"
+    exit 1
+fi
+
+log_info "✓ QWEN library File size: $(($FILE_SIZE / 1024))KB"
+
+# Summary
+if [ $SECURITY_ISSUES -eq 0 ]; then
+    log_info "✓ Security checks passed - no issues detected, tests can continue!"
+else
+    log_warn "Security checks completed with $SECURITY_ISSUES warning(s)"
+    log_warn "Review and resolve warnings above before proceeding to tests!"
+fi
+
+echo "END QWEN library security check"
+echo ""
+
 # Check AWS CLI if upload is enabled
 if [ "$UPLOAD_TO_S3" = true ]; then
     if ! command -v aws &> /dev/null; then
@@ -253,7 +346,7 @@ DURATION=$((END_TIME - START_TIME))
 MINUTES=$((DURATION / 60))
 SECONDS=$((DURATION % 60))
 
-log_info "Benchmarking TITAL Execution time: ${MINUTES}m ${SECONDS}s"
+log_info "CHECK: Benchmarking TOTAL Execution time: ${MINUTES}m ${SECONDS}s"
 echo "=================================================="
 echo ""
 
@@ -333,17 +426,17 @@ if [ -f "$SCRIPT_DIR/$CSV_FILENAME" ]; then
     fi
     
     # Offer to view full file
-    log_step "View Options"
-    echo "=================================="
-    echo "View full CSV file:"
-    echo "  cat $SCRIPT_DIR/$CSV_FILENAME"
-    echo ""
-    echo "View in column format:"
-    echo "  column -t -s ',' < $SCRIPT_DIR/$CSV_FILENAME | less -S"
-    echo ""
-    echo "Open in Excel/Numbers:"
-    echo "  open $SCRIPT_DIR/$CSV_FILENAME"
-    echo ""
+    # log_step "View Options"
+    # echo "=================================="
+    # echo "View full CSV file:"
+    # echo "  cat $SCRIPT_DIR/$CSV_FILENAME"
+    # echo ""
+    # echo "View in column format:"
+    # echo "  column -t -s ',' < $SCRIPT_DIR/$CSV_FILENAME | less -S"
+    # echo ""
+    # echo "Open in Excel/Numbers:"
+    # echo "  open $SCRIPT_DIR/$CSV_FILENAME"
+    # echo ""
     
     # Upload to S3 if enabled
     if [ "$UPLOAD_TO_S3" = true ]; then
@@ -352,7 +445,7 @@ if [ -f "$SCRIPT_DIR/$CSV_FILENAME" ]; then
         
         S3_PATH="s3://$S3_BUCKET/submissions/$TEAM_ID/$MEMBER_ID/$SUBMISSION_ID/"
         
-        log_info "Uploading CSV file to S3..."
+        log_info "Uploading benchmark metrics CSV file to S3..."
         log_info "Destination: ${S3_PATH}${CSV_FILENAME}"
         
         if aws s3 cp "$SCRIPT_DIR/$CSV_FILENAME" "${S3_PATH}${CSV_FILENAME}"; then

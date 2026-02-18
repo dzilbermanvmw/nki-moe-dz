@@ -6,7 +6,7 @@ Participants will write custom kernels with the Neuron Kernel Interface (NKI) fo
 
 For full details on the competition, read [the competition guidelines](https://github.com/aws-neuron/nki-moe/blob/main/CONTEST.md). 
 
-To register your team, [enter your information here](https://docs.google.com/forms/d/e/1FAIpQLSeWuJ9h9F0-aC5OwhKcIKgzUB8Sc3DFdBNEgzxzHfM4QsajcA/viewform?usp=sharing&ouid=108119140038382966223&resourcekey=0-VVlo6GUSizIcln6HhBFvKQ) (just one entry per team).
+To register your team, [enter your information here](https://docs.google.com/forms/d/e/1FAIpQLSeWuJ9h9F0-aC5OwhKcIKgzUB8Sc3DFdBNEgzxzHfM4QsajcA/viewform?usp=sharing&ouid=108119140038382966223&resourcekey=0-VVlo6GUSizIcln6HhBFvKQ) (just one entry per team). We will close this registration link when the event is at capacity, so if you're able to complete registration please assume it is confirmed.
 
 ## Getting Started
 
@@ -15,16 +15,75 @@ To learn NKI, follow [the official NKI guide](https://awsdocs-neuron.readthedocs
 ## Setup Steps
 
 1. Create a Trainium2 instance with AWS Neuron SDK v2.27 using EC2 based on the [setup guide](https://awsdocs-neuron.readthedocs-hosted.com/en/latest/setup/neuron-setup/multiframework/multi-framework-ubuntu24-neuron-dlami.html#setup-ubuntu24-multi-framework-dlami).
-2. Activate the Neuron virtual environment to run inference by running the appropriate activation command for your SDK version:
+2. Activate the Neuron Python virtual environment to run inference by running the appropriate activation command for your SDK version:
    ```bash
    source /opt/aws_neuronx_venv_pytorch_2_9_nxd_inference/bin/activate
    ```
-3. Clone this repository and run `cd [PATH]/nki-moe` where `[PATH]` is the directory where you have performed the clone.
-4. Download the Qwen3-30B-A3B model to a `~/qwen-30b-a3b/hf_model` folder in your root directory. We recommend doing so using the [Hugging Face CLI](https://huggingface.co/docs/huggingface_hub/en/guides/cli). You can install this by running `pip3 install huggingface_hub[cli]`.
-5. To run inference, navigate to `[PATH]/nki-moe` and run:
-   ```bash
-   python3 main.py --mode generate --model-path ~/qwen-30b-a3b/hf_model --compiled-model-path ~/qwen-30b-a3b/traced_model --prompt "What is the capital of France?"
-   ```
+3. Clone this repository and navigate to its root:
+```bash
+git clone https://github.com/aws-neuron/nki-moe.git
+cd [LOCAL PATH]/nki-moe
+```
+where `[PATH]` is the directory where you have performed the clone.
+
+4. Download the [HuggingFace Qwen3-30B-A3B model](https://huggingface.co/Qwen/Qwen3-Coder-30B-A3B-Instruct) to a `~/Qwen3-Coder-30B-A3B/hf_model` folder in your home directory. We recommend doing so using the [Hugging Face CLI](https://huggingface.co/docs/huggingface_hub/en/guides/cli), you can install Hugging Face CLI by running the following command:
+```bash
+pip3 install huggingface_hub[cli]
+```
+The command to download HuggingFace model into the expected `~/Qwen3-30B-A3B/hf_model/` folder should look like:
+```bash
+hf download Qwen/Qwen3-Coder-30B-A3B-Instruct --local-dir ~/Qwen3-30B-A3B/hf_model/
+```
+
+5. To run inference in `generate` mode, navigate to `[PATH]/nki-moe` folder and run the following command:
+```bash
+python3 main.py --mode generate --model-path ~/qwen-30b-a3b/hf_model --compiled-model-path ~/qwen-30b-a3b/traced_model --prompt "What is the capital of France?"
+```
+**NOTE:** you may need to install the corresponding version of Transformers library using command like:
+```bash
+pip install "transformers[hf-cli]==4.56.2"
+```
+
+6. To run inference in other modes, please use the new `run-evaluation.sh` script which offers the following command arguments:
+```bash
+./run-evaluation.sh -h
+Usage: ./run-evaluation.sh [OPTIONS]
+
+Required:
+  -t, --team-id TEAM_ID          Team identifier (required)
+  -m, --member-id MEMBER_ID      Team member identifier (required)
+
+Optional:
+  -M, --mode MODE                Evaluation mode (default: evaluate_single)
+                                 Options: evaluate_single, evaluate_all, validate, generate
+  -p, --platform PLATFORM        Platform target (default: trn2)
+                                 Options: trn2, trn3
+  -P, --prompt PROMPT            Prompt text (default: "I believe the meaning of life is")
+  -s, --seq-len LENGTH           Sequence length (default: 640)
+  -q, --qwen-module MODULE       Qwen module name (default: qwen)
+                                 Examples: qwen, qwen_optimized, qwen_with_nki
+  -a, --target-account-id ID     AWS account ID for S3 bucket (default: 195034363981)
+  -S, --submission-id ID         Submission identifier (default: auto-generated timestamp)
+  -u, --upload                   Upload results to S3 bucket
+  -h, --help                     Show this help message
+
+Examples:
+  # Single prompt evaluation on trn2 platform with default prompt
+  ./run-evaluation.sh --team-id my_team --member-id john_doe
+
+  # Single prompt evaluation with custom qwen module
+  ./run-evaluation.sh -t my_team -m john_doe -q qwen_optimized
+
+  # Single prompt evaluation with S3 bucket upload to custom account
+  ./run-evaluation.sh -t my_team -m john_doe -a 123456789012 --upload
+
+  # Evaluate all prompts with custom qwen module
+  ./run-evaluation.sh -t my_team -m jane_smith -M evaluate_all -q qwen_with_nki --upload
+
+  # Evaluate single prompt on trn3 platform with custom account
+  ./run-evaluation.sh -t my_team -m bob_jones -p trn3 -a 987654321098 --upload
+```
+As you can see, you can pass arguments like `-t my_team` (team_id),  `-m john_doe` (member_id), `-a 123456789012` AWS account_id for hosting S3 bucket for submissions, `--upload` whther results should be uoploaded to a target S3 buccket and `-q qwen_with_nki` - whether custom NKI kernel can be implemented and integrated with the main script.
 
 ## NKI Kernel Development
 
@@ -97,10 +156,22 @@ We define **points** as **Accuracy** (binary) **\* Reduced Latency \* Increased 
 
 For example, a submission that is sufficiently accurate, with 10x reduced latency, 2x increased throughput, and 0.85 normalized NKI FLOPS would obtain 1 \* 10 \* 2 \* 1.85 \= 37 points.
 
+### Sample NKI MOE Dashboard 
+
+Test of sample NKI-MOE dashboard for `trn2.3xlarge` based compute is shown below
+
+<iframe width="600" height="400" src="https://us-east-2.quicksight.aws.amazon.com/sn/embed/share/accounts/574143645326/dashboards/17608ca6-7183-4a95-92d0-2d7d9aae1ddb/sheets/17608ca6-7183-4a95-92d0-2d7d9aae1ddb_af47d763-0209-442a-a727-f0ecf241a4ca/visuals/17608ca6-7183-4a95-92d0-2d7d9aae1ddb_7c928c33-6e7f-4a00-a649-423cf1b8d781?directory_alias=nki-moe-trn-leaderboard-prod">
+</iframe>
+
 ## Additional Tools
 
 1. **Profiling:** If you would like to profile your implementation in order to get a better understanding of performance bottlenecks and opportunities for optimization, you can use the [Neuron Explorer](https://awsdocs-neuron.readthedocs-hosted.com/en/latest/tools/neuron-explorer/index.html).
 2. **Benchmarking:** You can also leverage the [NKI benchmarking API](https://awsdocs-neuron.readthedocs-hosted.com/en/latest/general/nki/api/generated/nki.benchmark.html) to retrieve execution latency statistics.
+
+## FAQ's
+1. What batch size will be used in evalution? We will use a batch size of 1 in the final evaluation.
+2. Should I use NKI 1 or NKI 2? We will make both NKI 1 and NKI 2 available in the evaluation suite, but we will prefer solutions that use NKI 2.
+3. How can I access Trn2? Please follow the notes [here](https://github.com/aws-neuron/nki-moe/issues/9).
 
 ## Contact
 

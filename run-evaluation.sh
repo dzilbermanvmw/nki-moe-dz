@@ -55,22 +55,28 @@ Optional:
 
 Examples:
   # Single prompt evaluation on trn2 platform with default prompt
-  $0 --team-id my_team --member-id john_doe
+  $0 --team-id TEAM-1234 --member-id john_doe
 
   # Single prompt evaluation with custom qwen module
-  $0 -t my_team -m john_doe -q qwen_optimized
+  $0 -t TEAM-1234 -m john_doe -q qwen_optimized
 
   # Single prompt evaluation with S3 bucket upload to custom account
-  $0 -t my_team -m john_doe -a 123456789012 --upload
+  $0 -t TEAM-1234 -m john_doe -a 123456789012 --upload
 
   # Evaluate all prompts with custom qwen module
-  $0 -t my_team -m jane_smith -M evaluate_all -q qwen_with_nki --upload
+  $0 -t TEAM-1234 -m jane_smith -M evaluate_all -q qwen_with_nki --upload
 
   # Evaluate single prompt on trn3 platform with custom account
-  $0 -t my_team -m bob_jones -p trn3 -a 987654321098 --upload
+  $0 -t TEAM-1234 -m bob_jones -p trn3 -a 987654321098 --upload
 
 EOF
 }
+
+# set the Python3 environment and wait
+source /opt/aws_neuronx_venv_pytorch_2_9_nxd_inference/bin/activate
+echo ""
+log_step  "Python 3 environment activated"
+echo ""
 
 # Parse command line arguments
 TEAM_ID=""
@@ -132,13 +138,13 @@ done
 
 # Validate required parameters
 if [ -z "$TEAM_ID" ]; then
-    log_error "Team ID is required"
+    log_error "Team ID in a format of 'TEAM-1234' is required!"
     print_usage
     exit 1
 fi
 
 if [ -z "$MEMBER_ID" ]; then
-    log_error "Member ID is required"
+    log_error "Member ID (email) is required!"
     print_usage
     exit 1
 fi
@@ -150,18 +156,20 @@ echo "=================================="
 echo "Team ID:       $TEAM_ID"
 echo "Member ID:     $MEMBER_ID"
 echo "Mode:          $MODE"
-echo "Platform:      $PLATFORM"
+echo "Trainium Platform:      $PLATFORM"
 echo "Prompt:        $PROMPT"
 echo "Sequence Len:  $SEQ_LEN"
 echo "Qwen Module File: $QWEN_MODULE.py"
 echo "Submission ID: $SUBMISSION_ID"
-echo "Upload to S3:  $UPLOAD_TO_S3"
+echo "Upload to S3 bucket:  $UPLOAD_TO_S3"
+
 # compute the S3 bucket name for uploading artifacts
 if [ "$UPLOAD_TO_S3" = true ]; then
-    S3_BUCKET="nki-moe-leaderboard-dev-submissions-${TARGET_ACCOUNT_ID}"
+    #S3_BUCKET="nki-moe-leaderboard-dev-submissions-${TARGET_ACCOUNT_ID}"
+    S3_BUCKET="nki-moe-leaderboard-dev-profiling-data-${TARGET_ACCOUNT_ID}"
     echo "Target Account ID:    $TARGET_ACCOUNT_ID"
-    echo "S3 Bucket:     s3://$S3_BUCKET"
-    echo "S3 Path:       submissions/$TEAM_ID/$MEMBER_ID/$SUBMISSION_ID/"
+    echo "Target S3 Bucket:     s3://$S3_BUCKET"
+    echo "S3 Path:     benchmarks/$TEAM_ID/$MEMBER_ID/$SUBMISSION_ID/"
 fi
 echo "=================================="
 echo ""
@@ -178,7 +186,7 @@ if ! command -v python3 &> /dev/null; then
     exit 1
 fi
 
-# Determine CSV filename (matching logic in main.py calculate_score function)
+# Determine benchmarking CSV filename (matching logic in main.py calculate_score function)
 if [ -n "$TEAM_ID" ]; then
     BASE_FILENAME="${TEAM_ID}_qwen3-30b-a3b"
     if [ -n "$QWEN_MODULE" ] && [ "$QWEN_MODULE" != "qwen" ]; then
@@ -194,18 +202,20 @@ else
     fi
 fi
 
+log_step "ATTENTION:  Benchmarking File Name: $CSV_FILENAME"
+
 # NEW: Validate qwen module file
 QWEN_FILE="${QWEN_MODULE}.py"
 log_step "ATTENTION: Validating Submitted QWEN Module Script: $QWEN_FILE"
 
-# Check if qwen module file exists
+# Check if qwen module python file exists
 if [ ! -f "$SCRIPT_DIR/$QWEN_FILE" ]; then
     log_error "Qwen module source file not found: $QWEN_FILE"
-    log_error "Expected location: $SCRIPT_DIR/$QWEN_FILE"
+    log_error "Expected script location: $SCRIPT_DIR/$QWEN_FILE"
     exit 1
 fi
 
-log_info "✓ QWEN Script file exists: $QWEN_FILE"
+log_info "✓ Submitted QWEN Python Script file path: $QWEN_FILE"
 
 # Check if file is readable
 if [ ! -r "$SCRIPT_DIR/$QWEN_FILE" ]; then
@@ -219,7 +229,7 @@ log_info "✓ QWEN Script File is readable"
 log_info "Validating QWEN Script File  Python3 syntax..."
 if ! python3 -m py_compile "$SCRIPT_DIR/$QWEN_FILE" 2>/dev/null; then
     log_error "Python syntax validation failed for submitted Script file: $QWEN_FILE"
-    log_error "Please fix syntax errors in your QWEN module"
+    log_error "Please fix syntax errors in your QWEN module script"
     python3 -m py_compile "$SCRIPT_DIR/$QWEN_FILE"
     exit 1
 fi
@@ -227,7 +237,7 @@ fi
 log_info "✓ QWEN Script File Python3 syntax is valid - proceeding to security checks..."
 
 # Security checks - scan for dangerous patterns
-log_info "Performing QWEN Script File library security checks..."
+log_info "Performing QWEN Script File Python3 library security checks..."
 SECURITY_ISSUES=0
 
 # Check for dangerous imports
@@ -302,7 +312,7 @@ if [ "$UPLOAD_TO_S3" = true ]; then
         exit 1
     fi
     
-    log_info "AWS CLI configured successfully"
+    log_info "AWS Account access configured successfully"
 fi
 
 # Record start time
@@ -425,27 +435,15 @@ if [ -f "$SCRIPT_DIR/$CSV_FILENAME" ]; then
         echo ""
     fi
     
-    # Offer to view full file
-    # log_step "View Options"
-    # echo "=================================="
-    # echo "View full CSV file:"
-    # echo "  cat $SCRIPT_DIR/$CSV_FILENAME"
-    # echo ""
-    # echo "View in column format:"
-    # echo "  column -t -s ',' < $SCRIPT_DIR/$CSV_FILENAME | less -S"
-    # echo ""
-    # echo "Open in Excel/Numbers:"
-    # echo "  open $SCRIPT_DIR/$CSV_FILENAME"
-    # echo ""
     
     # Upload to S3 if enabled
     if [ "$UPLOAD_TO_S3" = true ]; then
         log_step "Uploading Results to the target S3 bucket.."
         echo "=================================="
         
-        S3_PATH="s3://$S3_BUCKET/submissions/$TEAM_ID/$MEMBER_ID/$SUBMISSION_ID/"
+        S3_PATH="s3://$S3_BUCKET/benchmarks/$TEAM_ID/$MEMBER_ID/$SUBMISSION_ID/"
         
-        log_info "Uploading benchmark metrics CSV file to S3..."
+        log_info "Uploading benchmark metrics CSV file to S3 Bucket..."
         log_info "Destination: ${S3_PATH}${CSV_FILENAME}"
         
         if aws s3 cp "$SCRIPT_DIR/$CSV_FILENAME" "${S3_PATH}${CSV_FILENAME}"; then
@@ -482,10 +480,10 @@ if [ -f "$SCRIPT_DIR/$CSV_FILENAME" ]; then
         fi
         
         echo ""
-        log_result "Benchmark File S3 Upload Summary:"
+        log_result "Inference Benchmark File S3 Upload Summary:"
         echo "=================================="
         log_result "Target Bucket: $S3_BUCKET"
-        log_result "Path: submissions/$TEAM_ID/$MEMBER_ID/$SUBMISSION_ID/"
+        log_result "Path: benchmarks/$TEAM_ID/$MEMBER_ID/$SUBMISSION_ID/"
         log_result "Files uploaded:"
         log_result "  - $CSV_FILENAME"
         [ -f "$SCRIPT_DIR/benchmark_report.json" ] && log_result "  - benchmark_report.json"

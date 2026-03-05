@@ -4,9 +4,15 @@
 
 Participants will write custom kernels with the Neuron Kernel Interface (NKI) for the Qwen3-30B-A3B Mixture of Experts model and optimize inference performance on AWS Trainium2/3 hardware.
 
-For full details on the competition, read [the competition guidelines](https://github.com/aws-neuron/nki-moe/blob/main/CONTEST.md). 
+For full details on the competition, read [the competition guidelines](https://github.com/aws-neuron/nki-moe/blob/main/CONTEST.md). Team registration is closed at this time.
 
-To register your team, [enter your information here](https://docs.google.com/forms/d/e/1FAIpQLSeWuJ9h9F0-aC5OwhKcIKgzUB8Sc3DFdBNEgzxzHfM4QsajcA/viewform?usp=sharing&ouid=108119140038382966223&resourcekey=0-VVlo6GUSizIcln6HhBFvKQ) (just one entry per team). We will close this registration link when the event is at capacity, so if you're able to complete registration please assume it is confirmed.
+We are introducing multiple rounds for the competition. 
+
+### Round one: Trn2 in March
+Round one of the competition focuses on Trn2. We will take submissions from March 15-25, taking the top teams on performance. The evaluation environment will use Neuron SDK 2.28 with a single Trn2 chip.
+
+### Round two: Trn3 in April
+Round two of the competition focuses on Trn3. We will take submissions from April 14-24. Each of the top 15 teams from round one will receive access to a dedicated single-chip Trn3 instance. The evaluation environment will use Neuron SDK 2.28 with a single Trn3 chip.
 
 ## Getting Started
 

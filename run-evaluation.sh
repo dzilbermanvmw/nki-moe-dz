@@ -73,10 +73,10 @@ EOF
 }
 
 # set the Python3 environment and wait
-source /opt/aws_neuronx_venv_pytorch_2_9_nxd_inference/bin/activate
-echo ""
-log_step  "Python 3 environment activated"
-echo ""
+ source /opt/aws_neuronx_venv_pytorch_2_9_nxd_inference/bin/activate
+ echo ""
+ log_step  "Python 3 environment activated"
+ echo ""
 
 # Parse command line arguments
 TEAM_ID=""

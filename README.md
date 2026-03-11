@@ -91,7 +91,7 @@ Examples:
   # Evaluate single prompt on trn3 platform with custom account
   ./run-evaluation.sh -t my_team -m bob_jones@company.com -p trn3 -a 987654321098 --upload
 ```
-As can be seen, you can pass arguments like `-t my_team` (team_id),  `-m john_doe@company.com` (member_id), `-a 123456789012` AWS account_id for hosting S3 bucket for submissions and benchmarking metrics, `--upload` flag whether results should be uploaded to that S3 bucket for display via dahsboards and `-q qwen_with_nki` - flags whether custom NKI kernel can be implemented and integrated with the `main.py` script.
+As can be seen, you can pass arguments like `-t my_team` (team_id),  `-m john_doe@company.com` (member_id), `-a 123456789012` AWS account_id for hosting S3 bucket for submissions and benchmarking metrics, `--upload` flag whether results should be uploaded to that S3 bucket for display via dashboards and `-q qwen_with_nki` - flags whether custom NKI kernel can be implemented and integrated with the `main.py` script.
 
 ## NKI Kernel Development
 

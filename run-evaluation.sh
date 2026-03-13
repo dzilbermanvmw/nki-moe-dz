@@ -240,7 +240,7 @@ fi
 
 log_step "ATTENTION:  Benchmarking File Name: $CSV_FILENAME"
 
-# NEW: Validate qwen module file
+# Validate qwen module file
 QWEN_FILE="${QWEN_MODULE}.py"
 log_step "ATTENTION: Validating Submitted QWEN Module Script: $QWEN_FILE"
 
@@ -357,13 +357,13 @@ log_info "Starting Inference Benchmarking at: $(date '+%Y-%m-%d %H:%M:%S')"
 echo ""
 
 # Build Python command as an array for safe argument handling
+#  --seq-len "$SEQ_LEN"
+#  --qwen "$QWEN_MODULE"
 PYTHON_CMD=(python3 main.py
     --mode "$MODE"
     --team-id "$TEAM_ID"
     --member-id "$MEMBER_ID"
     --platform-target "$PLATFORM"
-    --seq-len "$SEQ_LEN"
-    --qwen "$QWEN_MODULE"
     --model-path "$MODEL_PATH"
     --compiled-model-path "$COMPILED_MODEL_PATH"
 )

@@ -9,7 +9,7 @@ For full details on the competition, read [the competition guidelines](https://g
 We are introducing multiple rounds for the competition. 
 
 ### Round one: Trn2 in March 2026
-Round one of the competition focuses on Trn2. We will take submissions from March 15-25, evaluating teams on performance. The evaluation environment will use Neuron SDK 2.28 with a single Trn2 chip. The top 15 teams from round one will move on to round two.
+Round one of the competition focuses on Trn2. We will take submissions from March 23-31, evaluating teams on performance. The evaluation environment will use Neuron SDK 2.28 with a single Trn2 chip. The top 15 teams from round one will move on to round two.
 
 ### Round two: Trn3 in April 2026
 Round two of the competition focuses on Trn3. We will take submissions from April 14-24. Each of the top 15 teams from round one will receive access to a dedicated single-chip Trn3 instance. The evaluation environment will use Neuron SDK 2.28 with a single Trn3 chip.
@@ -38,30 +38,30 @@ you can install Hugging Face CLI by running the following command:
 ```bash
 pip3 install huggingface_hub[cli]
 ```
-The command to download HuggingFace model into the expected `~/Qwen3-30B-A3B/hf_model/` folder should look like:
+The command to download HuggingFace model into the expected `~/qwen3-30B-A3B/hf_model/` folder should look like:
 ```bash
-hf download Qwen/Qwen3-Coder-30B-A3B-Instruct --local-dir ~/Qwen3-30B-A3B/hf_model/
+hf download Qwen/Qwen3-Coder-30B-A3B-Instruct --local-dir ~/qwen3-30B-A3B/hf_model/
 ```
 
 5. To run inference in `generate` mode, navigate to `[PATH]/nki-moe` folder and run the following command:
 ```bash
-python3 main.py --mode generate --model-path ~/Qwen-30b-a3b/hf_model --compiled-model-path ~/Qwen-30b-a3b/traced_model --prompt "What is the capital of France?"
+python3 main.py --mode generate --model-path ~/qwen-30b-a3b/hf_model --compiled-model-path ~/qwen-30b-a3b/traced_model --prompt "What is the capital of France?"
 ```
 **NOTE:** you may need to install the corresponding version of Transformers library using command like:
 ```bash
 pip install "transformers[hf-cli]==4.56.2"
 ```
 
-6. To run inference benchmarking in other modes, you can use the `run-evaluation.sh` script which supports the following command arguments:
+6. To run inference benchmarking and persist the metrics, you can use the `run-evaluation.sh` script which supports the following command arguments:
 ```bash
 ./run-evaluation.sh -h
 Usage: ./run-evaluation.sh [OPTIONS]
 
-Required:
+Required arguments:
   -t, --team-id TEAM_ID          Team identifier (required)
   -m, --member-id MEMBER_ID      Team member identifier (required)
 
-Optional:
+Optional arguments:
   -M, --mode MODE                Evaluation mode (default: evaluate_single)
                                  Options: evaluate_single, evaluate_all, validate, generate
   -p, --platform PLATFORM        Platform target (default: trn2)
@@ -82,13 +82,13 @@ Examples:
   # Single prompt evaluation with custom qwen module
   ./run-evaluation.sh -t my_team -m john_doe@company.com -q qwen_optimized
 
-  # Single prompt evaluation with S3 bucket upload to custom account
+  # Single prompt evaluation with S3 bucket upload to a designated account
   ./run-evaluation.sh -t my_team -m john_doe@company.com -a 123456789012 --upload
 
   # Evaluate all prompts with custom qwen module
   ./run-evaluation.sh -t my_team -m jane_smith@company.com -M evaluate_all -q qwen_with_nki --upload
 
-  # Evaluate single prompt on trn3 platform with custom account
+  # Evaluate single prompt on trn3 platform with designated report account
   ./run-evaluation.sh -t my_team -m bob_jones@company.com -p trn3 -a 987654321098 --upload
 ```
 As can be seen, you can pass arguments like `-t my_team` (team_id),  `-m john_doe@company.com` (member_id), `-a 123456789012` AWS account_id for hosting S3 bucket for submissions and benchmarking metrics, `--upload` flag whether results should be uploaded to that S3 bucket for display via dashboards and `-q qwen_with_nki` - flags whether custom NKI kernel can be implemented and integrated with the `main.py` script.
@@ -122,15 +122,15 @@ We also have `qwen_with_nki.py` which has model implementation with custom NKI k
 
 ```bash
 # Standard inference (uses qwen.py)
-python3 main.py --mode generate --model-path ~/Qwen-30b-a3b/hf_model --compiled-model-path ~/Qwen-30b-a3b/traced_model --prompt "What is the capital of France?"
+python3 main.py --mode generate --model-path ~/qwen-30b-a3b/hf_model --compiled-model-path ~/qwen-30b-a3b/traced_model --prompt "What is the capital of France?"
 
 # With NKI RMSNorm kernel (uses qwen_with_nki.py)
-python3 main.py --mode generate --enable-nki --model-path ~/Qwen-30b-a3b/hf_model --compiled-model-path ~/Qwen-30b-a3b/traced_model --prompt "What is the capital of France?"
+python3 main.py --mode generate --enable-nki --model-path ~/qwen-30b-a3b/hf_model --compiled-model-path ~/qwen-30b-a3b/traced_model --prompt "What is the capital of France?"
 ```
 
 **Important:** When switching between NKI and standard modes, remove the traced model directory and compile cache to ensure proper recompilation:
 ```bash
-rm -rf ~/Qwen-30b-a3b/traced_model
+rm -rf ~/qwen-30b-a3b/traced_model
 rm -rf /var/tmp/neuron-compile-cache/*
 ```
 
@@ -155,7 +155,7 @@ The contest organizers will execute each team's submission across the twenty wit
 
 Rankings will be established by calculating the total normalized number of points per team, where points are normalized against the baseline.
 
-We define **points** as **Accuracy** (binary) **\* Reduced Latency \* Increased Throughput \* (1 + Normalized NKI FLOPS)**, where:
+We define **points** as **Accuracy** (binary) **\* Reduced Latency \* Increased Throughput \* Normalized NKI FLOPS**, where:
 
 * **Accuracy** = 1 if accuracy matches or exceeds a predetermined threshold, 0 otherwise  
 * **Reduced Latency** = Reference implementation TTFT divided by submission TTFT  

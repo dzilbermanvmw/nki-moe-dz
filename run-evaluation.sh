@@ -20,6 +20,9 @@ PLATFORM="trn2"
 PROMPT="I believe the meaning of life is"
 SEQ_LEN=640
 QWEN_MODULE="qwen"
+MODEL_PATH="$HOME/Qwen3-30B-A3B/hf_model"
+COMPILED_MODEL_PATH="$HOME/Qwen3-30B-A3B/traced_model"
+SKIP_COMPILE=false
 TARGET_ACCOUNT_ID="195034363981"
 SUBMISSION_ID="submission_$(date +%Y%m%d_%H%M%S)"
 UPLOAD_TO_S3=false
@@ -48,7 +51,7 @@ Optional:
   -s, --seq-len LENGTH           Sequence length (default: 640)
   -q, --qwen-module MODULE       Qwen model processing module name (default: qwen)
                                  Examples: qwen, qwen_optimized, qwen_with_nki
-  -a, --target-account-id ID     AWS account ID for S3 bucket (default: 195034363981)
+  -a, --target-account-id ID     AWS account ID for S3 bucket 
   -S, --submission-id ID         Submission identifier (default: auto-generated timestamp)
   -u, --upload                   Upload results to S3 bucket
   -h, --help                     Show this help message
@@ -68,6 +71,24 @@ Examples:
 
   # Evaluate single prompt on trn3 platform with custom account
   $0 -t TEAM-1234 -m bob_jones -p trn3 -a 987654321098 --upload
+
+  # All three overrides
+  $0 -t TEAM-1234 -m john@company.com \
+  --model-path ~/qwen3-30B-A3B/hf_model \
+  --compiled-model-path ~/qwen3-30B-A3B/traced_model \
+  --skip-compile
+
+  # Custom paths without skipping compile
+  $0 -t TEAM-1234 -m john@company.com \
+  --model-path /data/models/Qwen3-30B-A3B/hf_model \
+  --compiled-model-path /data/models/Qwen3-30B-A3B/traced_model
+
+  # Combined with other flags (NKI module, S3 upload, trn3 platform)
+  $0 -t TEAM-1234 -m john@company.com \
+  -q qwen_with_nki -p trn3 \
+  --model-path ~/qwen3-30B-A3B/hf_model \
+  --compiled-model-path ~/qwen3-30B-A3B/traced_model \
+  --skip-compile --upload
 
 EOF
 }
@@ -328,14 +349,21 @@ PYTHON_CMD=(python3 main.py
     --platform-target "$PLATFORM"
     --seq-len "$SEQ_LEN"
     --qwen "$QWEN_MODULE"
+    --model-path "$MODEL_PATH"
+    --compiled-model-path "$COMPILED_MODEL_PATH"
 )
+
+# Add skip-compile flag if enabled
+if [ "$SKIP_COMPILE" = true ]; then
+    PYTHON_CMD+=(--skip-compile)
+fi
 
 # Add custom prompt for single evaluation mode
 if [ "$MODE" = "evaluate_single" ] || [ "$MODE" = "validate" ] || [ "$MODE" = "generate" ]; then
     PYTHON_CMD+=(--prompt "$PROMPT")
 fi
 
-log_step "Executing QWEN Model Inference performance evaluation..."
+log_step "Initiating QWEN Model Inference performance evaluation..."
 log_info "Command: ${PYTHON_CMD[*]}"
 echo "=================================================="
 
@@ -343,10 +371,10 @@ echo "=================================================="
 cd "$SCRIPT_DIR"
 if "${PYTHON_CMD[@]}"; then
     EXIT_CODE=0
-    log_info "Evaluation completed successfully!"
+    log_info "QWEN Model Inference performance evaluation completed successfully!"
 else
     EXIT_CODE=$?
-    log_error "Evaluation failed with exit code $EXIT_CODE!"
+    log_error "QWEN Model Inference performance evaluation failed with exit code $EXIT_CODE!"
 fi
 
 echo ""
@@ -363,7 +391,7 @@ echo ""
 
 # Check if CSV file was created/updated
 if [ -f "$SCRIPT_DIR/$CSV_FILENAME" ]; then
-    log_step "Generated Benchmark Records File"
+    log_step "Generated NKI-MOE Benchmark Records File"
     echo "=================================="
     log_result "File: $CSV_FILENAME"
     log_result "Location: $SCRIPT_DIR/$CSV_FILENAME"
@@ -378,24 +406,9 @@ if [ -f "$SCRIPT_DIR/$CSV_FILENAME" ]; then
     log_result "Last Modified: $LAST_MODIFIED"
     echo ""
     
-    # Display CSV header
-    #log_step "CSV Structure"
-    #echo "=================================="
-    #head -n 1 "$SCRIPT_DIR/$CSV_FILENAME"
-    #echo ""
-    
-    # Display last 5 records
-    #log_step "Recent Records (Last 5)"
-    #echo "=================================="
-    #if [ "$FILE_LINES" -gt 1 ]; then
-    #    tail -n 5 "$SCRIPT_DIR/$CSV_FILENAME" | column -t -s ','
-    #else
-    #    log_warn "No data records found (only header)"
-    #fi
-    #echo ""
     
     # Display records for this team member
-    log_step "Inference Metric Records for Team: $TEAM_ID, Member: $MEMBER_ID"
+    log_step "NKI-MOE Inference Metric Records for Team: $TEAM_ID, Member: $MEMBER_ID"
     echo "=================================="
     MEMBER_RECORDS=$(grep "^$TEAM_ID,$MEMBER_ID," "$SCRIPT_DIR/$CSV_FILENAME" 2>/dev/null || echo "")
     if [ -n "$MEMBER_RECORDS" ]; then
@@ -439,7 +452,7 @@ if [ -f "$SCRIPT_DIR/$CSV_FILENAME" ]; then
     
     # Upload to S3 if enabled
     if [ "$UPLOAD_TO_S3" = true ]; then
-        log_step "Uploading Results to the target S3 bucket.."
+        log_step "Uploading Benchmarking Results to the target S3 bucket.."
         echo "=================================="
         
         S3_PATH="s3://$S3_BUCKET/benchmarks/$TEAM_ID/$MEMBER_ID/$SUBMISSION_ID/"
@@ -481,7 +494,7 @@ if [ -f "$SCRIPT_DIR/$CSV_FILENAME" ]; then
         fi
         
         echo ""
-        log_result "Inference Benchmark File S3 Upload Summary:"
+        log_result "QWEN Model Inference performance benchmark file S3 Upload Summary:"
         echo "=================================="
         log_result "Target Bucket: $S3_BUCKET"
         log_result "Path: benchmarks/$TEAM_ID/$MEMBER_ID/$SUBMISSION_ID/"
@@ -491,29 +504,19 @@ if [ -f "$SCRIPT_DIR/$CSV_FILENAME" ]; then
         [ -n "$LOGIT_FILES" ] && log_result "  - expected_logits_*.pt files"
         echo ""
         
-        log_info "View uploaded files:"
+        log_info "To View uploaded files:"
         echo "  aws s3 ls ${S3_PATH}"
         echo ""
-        log_info "Download files:"
+        log_info "To Download files:"
         echo "  aws s3 cp ${S3_PATH} . --recursive"
         echo ""
     fi
     
 else
-    log_warn "CSV file not found: $CSV_FILENAME"
-    log_info "The file may not have been created if evaluation failed"
+    log_warn "CSV metrics file not found: $CSV_FILENAME"
+    log_info "The CSV metrics file may not have been created if evaluation failed"
 fi
 
-# Check for other CSV files
-#OTHER_CSV=$(find "$SCRIPT_DIR" -maxdepth 1 -name "*_score_records.csv" -o -name "score_records.csv" 2>/dev/null)
-#if [ -n "$OTHER_CSV" ]; then
-#    log_step "FYI - Other Benchmarking Score Record Files Found"
-#    echo "=================================="
-#    echo "$OTHER_CSV" | while read -r file; do
-#        basename "$file"
-#    done
-#    echo ""
-#fi
 
 # Exit with the same code as the Python script
 exit $EXIT_CODE

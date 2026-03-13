@@ -47,7 +47,7 @@ def parse_args():
     parser.add_argument("--team-id", type=str, help="Team identifier for score tracking")
     parser.add_argument("--member-id", type=str, help="Team member identifier for score tracking")
     
-    # Model path
+    # Model paths
     parser.add_argument("--model-path", type=str, default="/home/ubuntu/Qwen3-30B-A3B/hf_model")
     parser.add_argument("--compiled-model-path", type=str,
                         default="/home/ubuntu/Qwen3-30B-A3B/traced_model")
@@ -81,7 +81,7 @@ def parse_args():
     parser.add_argument("--rpl-reduce-dtype", type=to_torch_dtype)
     parser.add_argument("--output-logits", action="store_true")
     parser.add_argument("--vocab-parallel", action="store_true")
-    parser.add_argument("--skip-compile", type=bool, default=False)
+    parser.add_argument("--skip-compile", action="store_true", default=False)
     parser.add_argument("--save_sharded_checkpoint", type=bool, default=True)
     parser.add_argument("--platform-target", type=str, default='trn2') 
 
@@ -151,7 +151,7 @@ def prepare_inference(model_cls, args):
         # Compile and save model.
         # to do, add save sharded checkpoint here 
         compiling_start_time = time.monotonic()
-        print("\nCompiling and saving model...")
+        print("\nCompiling and saving submitted model...")
         model.compile(args.compiled_model_path, debug=False)
     
         compiling_end_time = time.monotonic()
@@ -159,7 +159,7 @@ def prepare_inference(model_cls, args):
         print(f"Compiling and tracing time: {total_compiling_time} seconds")
 
     # Load compiled model to Neuron.
-    print("\nLoading model to Neuron...")
+    print("\nNow Loading model to Neuron...")
     model.load(args.compiled_model_path)
 
     # Load tokenizer.

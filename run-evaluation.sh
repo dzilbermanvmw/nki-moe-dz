@@ -50,11 +50,10 @@ Optional:
   -P, --prompt PROMPT            Prompt text (default: "I believe the meaning of life is")
   -s, --seq-len LENGTH           Sequence length (default: 640)
   -q, --qwen-module MODULE       Qwen model processing module name (default: qwen)
-                                 Examples: qwen, qwen_with_nki
+                                 Examples: qwen, qwen_optimized, qwen_with_nki
   -a, --target-account-id ID     AWS account ID for S3 bucket 
   -S, --submission-id ID         Submission identifier (default: auto-generated timestamp)
   -u, --upload                   Upload results to S3 bucket
-  --enable-nki                   Enable NKI-accelerated RMSNorm (loads qwen_with_nki module)
   -h, --help                     Show this help message
 
 Examples:
@@ -93,7 +92,6 @@ Examples:
 
 EOF
 }
-
 
 
 # Parse command line arguments
@@ -154,10 +152,7 @@ while [[ $# -gt 0 ]]; do
             SKIP_COMPILE=true
             shift
             ;;
-        --enable-nki)
-            QWEN_MODULE="qwen_with_nki"
-            shift
-            ;;elp)
+        -h|--help)
             print_usage
             exit 0
             ;;
@@ -168,6 +163,18 @@ while [[ $# -gt 0 ]]; do
             ;;
     esac
 done
+
+# clean up Neuron cache and traced_model directories to prevent assertion issues
+  rm -rf /var/tmp/neuron-compile-cache/*
+  rm -rf "$COMPILED_MODEL_PATH"
+  log_step "Neuron cache and traced_model directory contents are cleaned up.."
+  echo "..."
+
+# set the Python3 environment and wait
+ source /opt/aws_neuronx_venv_pytorch_2_9_nxd_inference/bin/activate
+ echo ""
+ log_step  "Python 3 environment activated"
+ echo "..."
 
 # Validate required parameters
 if [ -z "$TEAM_ID" ]; then
@@ -196,22 +203,8 @@ echo "Qwen Module File: $QWEN_MODULE.py"
 echo "Model Path:    $MODEL_PATH"
 echo "Compiled Path: $COMPILED_MODEL_PATH"
 echo "Skip Compile:  $SKIP_COMPILE"
-echo "Skip Compile:  $SKIP_COMPILE"
-echo "Enable NKI:    $([ "$QWEN_MODULE" = "qwen_with_nki" ] && echo true || echo false)"
-echo "Submission ID: $SUBMISSION_ID"TO_S3"
-
-
-# CHECK: clean up previous compile results to avoid potential assertion errors
- rm -rf /var/tmp/neuron-compile-cache/*
- rm -rf "$COMPILED_MODEL_PATH"
- echo "CHECK: Neuron compile cache and traced model data are cleaned up.."
- echo "..."
-
-# set the Python3 environment and wait
- source /opt/aws_neuronx_venv_pytorch_2_9_nxd_inference/bin/activate
- echo ""
- log_step  "Python 3 environment activated"
- echo ""
+echo "Submission ID: $SUBMISSION_ID"
+echo "Upload to S3 bucket:  $UPLOAD_TO_S3"
 
 # compute the S3 bucket name for uploading artifacts
 if [ "$UPLOAD_TO_S3" = true ]; then
@@ -254,11 +247,11 @@ fi
 
 log_step "ATTENTION:  Benchmarking File Name: $CSV_FILENAME"
 
-# Validate qwen module file
+# Validates ubmitted Qwen module file
 QWEN_FILE="${QWEN_MODULE}.py"
 log_step "ATTENTION: Validating Submitted QWEN Module Script: $QWEN_FILE"
 
-# Check if qwen module python file exists
+# Check if submitted qwen module python file exists
 if [ ! -f "$SCRIPT_DIR/$QWEN_FILE" ]; then
     log_error "Qwen module source file not found: $QWEN_FILE"
     log_error "Expected script location: $SCRIPT_DIR/$QWEN_FILE"
@@ -267,7 +260,7 @@ fi
 
 log_info "✓ Submitted QWEN Python Script file path: $QWEN_FILE"
 
-# Check if file is readable
+# Check if submitted file is readable
 if [ ! -r "$SCRIPT_DIR/$QWEN_FILE" ]; then
     log_error "QWEN module source file is not readable: $QWEN_FILE"
     exit 1
@@ -275,7 +268,7 @@ fi
 
 log_info "✓ QWEN Script File is readable"
 
-# Validate Python3 syntax
+# Validate submitted Python3 script syntax
 log_info "Validating QWEN Script File  Python3 syntax..."
 if ! python3 -m py_compile "$SCRIPT_DIR/$QWEN_FILE" 2>/dev/null; then
     log_error "Python syntax validation failed for submitted Script file: $QWEN_FILE"
@@ -290,7 +283,7 @@ log_info "✓ QWEN Script File Python3 syntax is valid - proceeding to security 
 log_info "Performing QWEN Script File Python3 library security checks..."
 SECURITY_ISSUES=0
 
-# Check for dangerous imports
+# Check submitted Py script for dangerous imports
 DANGEROUS_IMPORTS="subprocess|os\.system|eval|exec|compile|__import__|pickle|shelve|marshal"
 if grep -E "^\s*(import|from).*($DANGEROUS_IMPORTS)" "$SCRIPT_DIR/$QWEN_FILE" > /dev/null 2>&1; then
     log_warn "⚠ Warning: Potentially dangerous imports detected (subprocess, os.system, eval, exec, etc.)"
@@ -298,35 +291,35 @@ if grep -E "^\s*(import|from).*($DANGEROUS_IMPORTS)" "$SCRIPT_DIR/$QWEN_FILE" > 
     SECURITY_ISSUES=$((SECURITY_ISSUES + 1))
 fi
 
-# Check for file operations
+# Check submitted Py script for file operations
 if grep -E "(open\s*\(|file\s*\(|\.write\(|\.read\()" "$SCRIPT_DIR/$QWEN_FILE" > /dev/null 2>&1; then
     log_warn "⚠ Warning: File I/O operations detected"
     log_warn "Ensure file operations are necessary and safe"
     SECURITY_ISSUES=$((SECURITY_ISSUES + 1))
 fi
 
-# Check for network operations
+# Check for submitted Py script network operations
 if grep -E "(socket|urllib|requests|http\.client|ftplib)" "$SCRIPT_DIR/$QWEN_FILE" > /dev/null 2>&1; then
     log_warn "⚠ Warning: Network operations detected"
     log_warn "Network access may be restricted during evaluation"
     SECURITY_ISSUES=$((SECURITY_ISSUES + 1))
 fi
 
-# Check for system commands
+# Check submitted Py script for system commands
 if grep -E "(os\.system|subprocess\.call|subprocess\.run|subprocess\.Popen)" "$SCRIPT_DIR/$QWEN_FILE" > /dev/null 2>&1; then
     log_error "✗ SECURITY RISK: System command execution detected"
     log_error "System commands are not allowed in qwen modules"
     exit 1
 fi
 
-# Check for code execution
+# Check submitted Py script for code execution
 if grep -E "\b(eval|exec)\s*\(" "$SCRIPT_DIR/$QWEN_FILE" > /dev/null 2>&1; then
     log_error "✗ SECURITY RISK: Dynamic code execution detected (eval/exec)"
     log_error "Dynamic code execution is not allowed"
     exit 1
 fi
 
-# Check overall QWEN library file size (max 10MB)
+# Check overall submitted Py library file size (max 10MB)
 FILE_SIZE=$(stat -f%z "$SCRIPT_DIR/$QWEN_FILE" 2>/dev/null || stat -c%s "$SCRIPT_DIR/$QWEN_FILE" 2>/dev/null)
 MAX_SIZE=$((10 * 1024 * 1024))
 if [ "$FILE_SIZE" -gt "$MAX_SIZE" ]; then
@@ -344,7 +337,6 @@ else
     log_warn "Review and resolve warnings above before proceeding to tests!"
 fi
 
-echo "END QWEN Script File library security check"
 echo ""
 
 # Check AWS CLI if upload is enabled
@@ -372,7 +364,7 @@ echo ""
 
 # Build Python command as an array for safe argument handling
 #  --seq-len "$SEQ_LEN"
-#  Needed for proper CSV file generation --qwen "$QWEN_MODULE"
+# Need to pass in --qwen "$QWEN_MODULE"
 PYTHON_CMD=(python3 main.py
     --mode "$MODE"
     --team-id "$TEAM_ID"
@@ -420,7 +412,7 @@ DURATION=$((END_TIME - START_TIME))
 MINUTES=$((DURATION / 60))
 SECONDS=$((DURATION % 60))
 
-log_info "CHECK: Benchmarking TOTAL Execution time: ${MINUTES}m ${SECONDS}s"
+log_info "CHECK: Inference Benchmarking TOTAL Execution time: ${MINUTES}m ${SECONDS}s"
 echo "=================================================="
 echo ""
 
@@ -546,16 +538,16 @@ if [ -f "$SCRIPT_DIR/$CSV_FILENAME" ]; then
         echo "  aws s3 cp ${S3_PATH} . --recursive"
         echo ""
 
-        # Now remove uploaded CSV file
-	    rm "$SCRIPT_DIR/$CSV_FILENAME"
-	    log_info "Removed generated metrics file: $SCRIPT_DIR/$CSV_FILENAME"
-	    echo "---------------------------------------------------------"
+	# Now remove uploaded CSV file
+	rm "$SCRIPT_DIR/$CSV_FILENAME"
+	log_info "Removed generated metrics file: $SCRIPT_DIR/$CSV_FILENAME"
+	echo "---------------------------------------------------------"
 	
     fi
     
 else
     log_warn "CSV metrics file not found: $CSV_FILENAME"
-    log_info "The CSV inference metrics file may not have been created if evaluation failed"
+    log_info "The CSV metrics file may not have been created if evaluation failed"
 fi
 
 

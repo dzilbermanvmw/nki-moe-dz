@@ -167,7 +167,7 @@ done
 # clean up Neuron cache and traced_model directories to prevent assertion issues
   rm -rf /var/tmp/neuron-compile-cache/*
   rm -rf "$COMPILED_MODEL_PATH"
-  log_step "Neuron cache and traced_model directory contents are cleaned up.."
+  log_step "Neuron cache and traced_model directory: $COMPILED_MODEL_PATH contents are cleaned up.."
   echo "..."
 
 # set the Python3 environment and wait
@@ -208,7 +208,6 @@ echo "Upload to S3 bucket:  $UPLOAD_TO_S3"
 
 # compute the S3 bucket name for uploading artifacts
 if [ "$UPLOAD_TO_S3" = true ]; then
-    #S3_BUCKET="nki-moe-leaderboard-dev-submissions-${TARGET_ACCOUNT_ID}"
     S3_BUCKET="nki-moe-leaderboard-dev-profiling-data-${TARGET_ACCOUNT_ID}"
     echo "Target Account ID:    $TARGET_ACCOUNT_ID"
     echo "Target S3 Bucket:     s3://$S3_BUCKET"

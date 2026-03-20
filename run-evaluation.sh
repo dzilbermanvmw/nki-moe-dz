@@ -50,10 +50,11 @@ Optional:
   -P, --prompt PROMPT            Prompt text (default: "I believe the meaning of life is")
   -s, --seq-len LENGTH           Sequence length (default: 640)
   -q, --qwen-module MODULE       Qwen model processing module name (default: qwen)
-                                 Examples: qwen, qwen_optimized, qwen_with_nki
+                                 Examples: qwen, qwen_with_nki
   -a, --target-account-id ID     AWS account ID for S3 bucket 
   -S, --submission-id ID         Submission identifier (default: auto-generated timestamp)
   -u, --upload                   Upload results to S3 bucket
+  --enable-nki                   Enable NKI-accelerated RMSNorm (loads qwen_with_nki module)
   -h, --help                     Show this help message
 
 Examples:
@@ -93,11 +94,7 @@ Examples:
 EOF
 }
 
-# set the Python3 environment and wait
- source /opt/aws_neuronx_venv_pytorch_2_9_nxd_inference/bin/activate
- echo ""
- log_step  "Python 3 environment activated"
- echo ""
+
 
 # Parse command line arguments
 TEAM_ID=""
@@ -157,7 +154,10 @@ while [[ $# -gt 0 ]]; do
             SKIP_COMPILE=true
             shift
             ;;
-        -h|--help)
+        --enable-nki)
+            QWEN_MODULE="qwen_with_nki"
+            shift
+            ;;elp)
             print_usage
             exit 0
             ;;
@@ -196,15 +196,23 @@ echo "Qwen Module File: $QWEN_MODULE.py"
 echo "Model Path:    $MODEL_PATH"
 echo "Compiled Path: $COMPILED_MODEL_PATH"
 echo "Skip Compile:  $SKIP_COMPILE"
-echo "Submission ID: $SUBMISSION_ID"
-echo "Upload to S3 bucket:  $UPLOAD_TO_S3"
+echo "Skip Compile:  $SKIP_COMPILE"
+echo "Enable NKI:    $([ "$QWEN_MODULE" = "qwen_with_nki" ] && echo true || echo false)"
+echo "Submission ID: $SUBMISSION_ID"TO_S3"
+
 
 # CHECK: clean up previous compile results to avoid potential assertion errors
  rm -rf /var/tmp/neuron-compile-cache/*
  rm -rf "$COMPILED_MODEL_PATH"
  echo "CHECK: Neuron compile cache and traced model data are cleaned up.."
  echo "..."
- 
+
+# set the Python3 environment and wait
+ source /opt/aws_neuronx_venv_pytorch_2_9_nxd_inference/bin/activate
+ echo ""
+ log_step  "Python 3 environment activated"
+ echo ""
+
 # compute the S3 bucket name for uploading artifacts
 if [ "$UPLOAD_TO_S3" = true ]; then
     #S3_BUCKET="nki-moe-leaderboard-dev-submissions-${TARGET_ACCOUNT_ID}"
@@ -378,6 +386,11 @@ PYTHON_CMD=(python3 main.py
 # Add skip-compile flag ONLY if enabled
 if [ "$SKIP_COMPILE" = true ]; then
     PYTHON_CMD+=(--skip-compile)
+fi
+
+# Add enable-nki flag if qwen module is qwen_with_nki
+if [ "$QWEN_MODULE" = "qwen_with_nki" ]; then
+    PYTHON_CMD+=(--enable-nki)
 fi
 
 # Add custom prompt for single evaluation mode
